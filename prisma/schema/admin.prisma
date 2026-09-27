@@ -1,0 +1,43 @@
+model Admin {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Session  Session[]
+  AuditLog AuditLog[]
+}
+
+// id is the SHA-256 of the cookie value, so a DB leak doesn't leak live sessions.
+model Session {
+  id        String   @id
+  adminID   Int
+  csrfToken String
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  Admin Admin @relation(fields: [adminID], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         Int     @id @default(autoincrement())
+  adminID    Int?
+  action     String
+  targetType String?
+  targetID   String?
+  details    Json?
+
+  createdAt DateTime @default(now())
+
+  Admin Admin? @relation(fields: [adminID], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}

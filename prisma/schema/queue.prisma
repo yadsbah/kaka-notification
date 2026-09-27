@@ -1,0 +1,118 @@
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+// Queue timestamps (runAfter, lockedUntil) are compared in raw SQL against Date.now(), so they are always
+// written from JS. No @default(now()): Prisma's engine clock can run ahead of Bun's and hide a due job.
+model Job {
+  id               String    @id
+  notificationID   String
+  projectID        String
+  parentJobID      String?
+  status           JobStatus @default(PENDING)
+  chunkIndex       Int
+  tokens           Json
+  tokenCount       Int
+  priority         Int       @default(0)
+  attempts         Int       @default(0)
+  maxAttempts      Int
+  runAfter         DateTime
+  lockedBy         String?
+  lockedUntil      DateTime?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  durationMs       Int?
+  lastErrorCode    String?
+  lastErrorMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Notification Notification  @relation(fields: [notificationID], references: [id], onDelete: Cascade)
+  Project      Project       @relation(fields: [projectID], references: [id], onDelete: Cascade)
+  Parent       Job?          @relation("retries", fields: [parentJobID], references: [id], onDelete: SetNull)
+  Retries      Job[]         @relation("retries")
+  TokenResult  TokenResult[]
+
+  @@index([status, runAfter, priority])
+  @@index([projectID, status])
+  @@index([notificationID])
+  @@index([finishedAt])
+}
+
+enum TokenOutcome {
+  SUCCESS
+  INVALID
+  FAILED
+}
+
+enum ErrorCategory {
+  INVALID_TOKEN
+  RETRYABLE
+  CONFIG_ERROR
+  PAYLOAD_ERROR
+  UNKNOWN
+  CANCELED
+}
+
+// Final outcomes only: one row per (notification, token), enforced by the unique index.
+model TokenResult {
+  id             Int            @id @default(autoincrement())
+  jobID          String?
+  notificationID String
+  outcome        TokenOutcome
+  errorCategory  ErrorCategory?
+  token          String
+  messageID      String?
+  errorCode      String?
+  errorMessage   String?
+  attempt        Int
+
+  createdAt DateTime @default(now())
+
+  Job          Job?         @relation(fields: [jobID], references: [id], onDelete: SetNull)
+  Notification Notification @relation(fields: [notificationID], references: [id], onDelete: Cascade)
+
+  @@unique([notificationID, token])
+  @@index([notificationID, outcome, errorCode])
+  @@index([createdAt])
+}
+
+model Worker {
+  id            String   @id
+  hostname      String
+  pid           Int
+  jobsProcessed Int      @default(0)
+  currentJobID  String?
+  startedAt     DateTime @default(now())
+  lastSeen      DateTime @default(now())
+}
+
+enum WebhookStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+// One row per delivery attempt; the next attempt is a new PENDING row.
+model WebhookDelivery {
+  id              Int           @id @default(autoincrement())
+  notificationID  String
+  status          WebhookStatus @default(PENDING)
+  attempt         Int
+  statusCode      Int?
+  responseSnippet String?
+  runAfter        DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Notification Notification @relation(fields: [notificationID], references: [id], onDelete: Cascade)
+
+  @@index([status, runAfter])
+  @@index([notificationID])
+}

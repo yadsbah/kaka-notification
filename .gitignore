@@ -1,0 +1,9 @@
+node_modules
+data/
+.env
+.env.local
+web/node_modules
+web/dist
+*.db
+*.db-*
+.env.test

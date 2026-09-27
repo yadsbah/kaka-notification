@@ -1,0 +1,39 @@
+enum NotificationStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  PARTIALLY_FAILED
+  FAILED
+  CANCELED
+}
+
+model Notification {
+  id             String             @id
+  projectID      String
+  status         NotificationStatus @default(QUEUED)
+  externalID     String?
+  idempotencyKey String?
+  requestHash    String
+  payload        Json
+  totalTokens    Int
+  uniqueTokens   Int
+  successCount   Int                @default(0)
+  invalidCount   Int                @default(0)
+  failedCount    Int                @default(0)
+  pendingCount   Int
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Project         Project           @relation(fields: [projectID], references: [id], onDelete: Cascade)
+  Job             Job[]
+  TokenResult     TokenResult[]
+  WebhookDelivery WebhookDelivery[]
+
+  @@unique([projectID, idempotencyKey])
+  @@index([projectID, createdAt])
+  @@index([status])
+  @@index([externalID])
+}

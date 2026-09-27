@@ -1,0 +1,29 @@
+enum CredentialStatus {
+  MISSING
+  OK
+  ERROR
+}
+
+model Project {
+  id                     String           @id
+  credentialStatus       CredentialStatus @default(MISSING)
+  name                   String
+  enabled                Boolean          @default(true)
+  firebaseProjectID      String?
+  clientEmail            String?
+  credentialEncrypted    String?
+  credentialError        String?
+  apiKeyPublicID         String?          @unique
+  apiKeyHash             String?
+  apiKeyCreatedAt        DateTime?
+  webhookUrl             String?
+  webhookSecretEncrypted String?
+  lastError              String?
+  lastErrorAt            DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Notification Notification[]
+  Job          Job[]
+}
