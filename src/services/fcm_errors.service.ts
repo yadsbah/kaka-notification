@@ -24,6 +24,7 @@ const RETRYABLE_CODES = new Set([
   "app/network-timeout",
   "app/unable-to-parse-response",
   "lease_expired",
+  "send_timeout",
 ]);
 
 const CONFIG_CODES = new Set([

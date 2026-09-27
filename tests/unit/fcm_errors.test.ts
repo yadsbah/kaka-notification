@@ -28,6 +28,7 @@ describe("FCM error classification", () => {
     ["max concurrent streams", fcm("messaging/unknown-error", "exceeded_max_concurrent_streams"), "RETRYABLE"],
     ["socket hang up", new Error("socket hang up"), "RETRYABLE"],
     ["lease expired", { code: "lease_expired", message: "Lease expired" }, "RETRYABLE"],
+    ["send timeout", { code: "send_timeout", message: "FCM did not answer" }, "RETRYABLE"],
     ["mismatched credential", fcm("messaging/mismatched-credential"), "CONFIG_ERROR"],
     ["third party auth", fcm("messaging/third-party-auth-error"), "CONFIG_ERROR"],
     ["authentication error", fcm("messaging/authentication-error"), "CONFIG_ERROR"],

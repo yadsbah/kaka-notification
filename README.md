@@ -162,7 +162,7 @@ Every FCM error is classified in [`src/services/fcm_errors.service.ts`](src/serv
 | Category | Examples | What happens |
 |---|---|---|
 | invalid token | `registration-token-not-registered`, `invalid-registration-token`, `invalid-argument` about the token | Final **invalid**; never retried; returned by `/invalid-tokens` and the webhook |
-| retryable | `server-unavailable`, `internal-error`, `message-rate-exceeded`, `quota-exceeded`, ECONNRESET, ETIMEDOUT, HTTP/2 GOAWAY | Only the failed tokens go into a retry job, with backoff (`RETRY_BACKOFF_SECONDS` ±20% jitter, honouring `Retry-After`). After `MAX_ATTEMPTS` they are final **failed**. |
+| retryable | `server-unavailable`, `internal-error`, `message-rate-exceeded`, `quota-exceeded`, ECONNRESET, ETIMEDOUT, HTTP/2 GOAWAY, `send_timeout` | Only the failed tokens go into a retry job, with backoff (`RETRY_BACKOFF_SECONDS` ±20% jitter, honouring `Retry-After`). After `MAX_ATTEMPTS` they are final **failed**. |
 | config error | `mismatched-credential`, `third-party-auth-error`, `app/invalid-credential` | If **every** token in a job fails this way: the tokens are failed, the project is flagged "credential problem", and its other pending jobs **pause** (no attempts burned) until you upload a working credential or a validate-only test send succeeds. If only *some* tokens fail this way, only those tokens fail and the project keeps sending. |
 | payload error | `payload-size-limit-exceeded`, `invalid-argument` about the body | The whole notification fails, including chunks not yet sent. Logged as an error, because validation should have caught it. |
 | unknown | anything else | Retried like retryable; the raw error is logged |
@@ -207,7 +207,8 @@ All configuration comes from environment variables. See [`.env.example`](.env.ex
 | `NOTIFICATION_RETENTION_DAYS` | `0` | `0` keeps notifications (with their counters) forever |
 | `AUDIT_RETENTION_DAYS` | `90` | Admin audit log; `0` keeps it forever |
 | `CLEANUP_INTERVAL_HOURS` | `24` | |
-| `FCM_HTTP1` | `false` | Use firebase-admin's HTTP/1.1 transport if HTTP/2 misbehaves |
+| `FCM_HTTP1` | `true` | firebase-admin's HTTP/1.1 transport. Keep it on under Bun: its HTTP/2 client trips FCM's `exceeded_max_concurrent_streams` on normal batch sizes. |
+| `SEND_TIMEOUT_MS` | `60000` | A single FCM call that takes longer is abandoned and its tokens are retried, so a hung connection can't block a worker. Must be less than `LEASE_SECONDS`. |
 | `LOG_LEVEL` | `info` | pino JSON logs. Tokens and credentials are never logged. |
 
 ## Operations

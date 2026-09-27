@@ -72,4 +72,25 @@ export const setFcmSender = (next?: FcmSender) => {
   sender = next ?? firebaseSender;
 };
 
-export const sendMulticast: FcmSender = (project, message, dryRun) => sender(project, message, dryRun);
+export class SendTimeoutError extends Error {
+  code = "send_timeout";
+}
+
+// A hung FCM call (e.g. a wedged HTTP/2 session) must never hold a worker slot forever: past
+// SEND_TIMEOUT_MS the job is treated as a retryable failure and this project's firebase app (and its
+// connections) is discarded so the retry starts clean. The abandoned call can't be cancelled; deleting the
+// app closes its sockets.
+export const sendMulticast: FcmSender = async (project, message, dryRun) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      invalidateFcmApp(project.id);
+      reject(new SendTimeoutError(`FCM did not answer within ${config.sendTimeoutMs}ms`));
+    }, config.sendTimeoutMs);
+  });
+  try {
+    return await Promise.race([sender(project, message, dryRun), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+};

@@ -68,7 +68,14 @@ export const config = {
   notificationRetentionDays: int("NOTIFICATION_RETENTION_DAYS", 0, 0, 36500),
   auditRetentionDays: int("AUDIT_RETENTION_DAYS", 90, 0, 36500),
   cleanupIntervalHours: int("CLEANUP_INTERVAL_HOURS", 24, 1, 24 * 30),
-  // firebase-admin's HTTP/1.1 transport; flip on if HTTP/2 misbehaves (GOAWAY storms, runtime quirks).
-  fcmHttp1: bool("FCM_HTTP1", false),
+  // HTTP/1.1 by default: under Bun, firebase-admin's HTTP/2 transport opens every request in a batch at
+  // once and FCM answers 200-token batches with GOAWAY exceeded_max_concurrent_streams.
+  fcmHttp1: bool("FCM_HTTP1", true),
+  sendTimeoutMs: int("SEND_TIMEOUT_MS", 60_000, 100, 3_600_000),
   logLevel: Bun.env.LOG_LEVEL || "info",
 };
+
+// A send that outlives its lease would be reaped and resent while still in flight.
+if (config.sendTimeoutMs >= config.leaseSeconds * 1000) {
+  throw new Error("Config: SEND_TIMEOUT_MS must be shorter than LEASE_SECONDS");
+}
